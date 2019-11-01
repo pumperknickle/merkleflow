@@ -1,0 +1,23 @@
+version: '3'
+
+services:
+  merkleflow:
+    build: .
+    image: merkleflow
+    environment:
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=merkleflow-test
+      - POSTGRES_USER=merkleflow
+      - POSTGRES_PASSWORD=password
+    depends_on:
+      - postgres
+    links:
+      - postgres
+  postgres:
+    image: "postgres"
+    environment:
+      - POSTGRES_DB=merkleflow-test
+      - POSTGRES_USER=merkleflow
+      - POSTGRES_PASSWORD=password
+

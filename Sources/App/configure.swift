@@ -1,32 +1,34 @@
-import FluentSQLite
+import FluentPostgreSQL
 import Vapor
+import MerkleModels
 
 /// Called before your application initializes.
 public func configure(_ config: inout Config, _ env: inout Environment, _ services: inout Services) throws {
-    // Register providers first
-    try services.register(FluentSQLiteProvider())
+    /// Register providers first
+    try services.register(FluentPostgreSQLProvider())
 
-    // Register routes to the router
+    /// Register routes to the router
     let router = EngineRouter.default()
     try routes(router)
     services.register(router, as: Router.self)
 
-    // Register middleware
-    var middlewares = MiddlewareConfig() // Create _empty_ middleware config
-    // middlewares.use(FileMiddleware.self) // Serves files from `Public/` directory
-    middlewares.use(ErrorMiddleware.self) // Catches errors and converts to HTTP response
+    /// Register middleware
+    var middlewares = MiddlewareConfig()
+    middlewares.use(ErrorMiddleware.self)
     services.register(middlewares)
 
-    // Configure a SQLite database
-    let sqlite = try SQLiteDatabase(storage: .memory)
-
-    // Register the configured SQLite database to the database config.
+    
+    let db = Environment.get("POSTGRES_DB") ?? "merkleflow-test"
+    let host = Environment.get("POSTGRES_HOST") ?? "postgres"
+    let user = Environment.get("POSTGRES_USER") ?? "merkleflow"
+    let pass = Environment.get("POSTGRES_PASSWORD") ?? "password"
+    let port = Int(Environment.get("POSTGRES_PORT") ?? "5432") ?? 5432
+    let pgsql = PostgreSQLDatabase(config: PostgreSQLDatabaseConfig(hostname: host, port: port, username: user, database: db, password: pass))
     var databases = DatabasesConfig()
-    databases.add(database: sqlite, as: .sqlite)
+    databases.add(database: pgsql, as: .psql)
     services.register(databases)
 
-    // Configure migrations
-    var migrations = MigrationConfig()
-    migrations.add(model: Todo.self, database: .sqlite)
+	var migrations = MigrationConfig()
+    migrations.add(model: FlowMessage256.self, database: .psql)
     services.register(migrations)
 }
