@@ -12,6 +12,7 @@ final class AppTests: XCTestCase {
         XCTAssert(true)
     }
 	
+	
 	func testGetAndCreate() throws {
 		var config = Config.default()
 		var services = Services.default()
@@ -19,24 +20,30 @@ final class AppTests: XCTestCase {
 		try App.configure(&config, &env, &services)
 		let app = try Application(config: config, environment: env, services: services)
 		try App.boot(app)
-		let conn = try app.newConnection(to: .psql).wait()
 
 		let key = UInt256.random()
-		let publicKeyDigest = BaseCrypto.hash(publicKey.toBoolArray())!
 		let encryptedAddress = EncryptedAddress256(addressHash: UInt256(0), symmetricKey: key, recipientPublicKeys: [publicKey])
 		let signedMessage = FlowMessage256(flow: "flow", privateKey: privateKey, publicKey: publicKey, message: encryptedAddress!)
 		XCTAssertTrue(signedMessage != nil)
-		
-		let _ = try signedMessage!.save(on: conn).wait()
-		
 		let responder = try app.make(Responder.self)
+		
+		let createRequest = HTTPRequest(method: .POST, url: URL(string: "flows")!, headers: ["Content-Type": "application/json"])
+		let wrappedCreateRequest = Request(http: createRequest, using: app)
+		try wrappedCreateRequest.content.encode(signedMessage!)
+		
+		let createResponse = try responder.respond(to: wrappedCreateRequest).wait()
+		
+		let createResponseContent = try? createResponse.content.decode(FlowMessage256.self).wait()
+		
+		XCTAssertNotNil(createResponseContent)
+		XCTAssertNotNil(createResponseContent!.id)
+		XCTAssertNotNil(createResponseContent!.createdAt)
+		
 		let request = HTTPRequest(method: .GET, url: URL(string: "flows")!)
 		let wrappedRequest = Request(http: request, using: app)
 
-		// 7
 		let response = try responder.respond(to: wrappedRequest).wait()
 
-		// 8
 		let savedMessages = try? response.content.decode([FlowMessage256].self).wait()
 		
 		XCTAssertNotNil(savedMessages)
